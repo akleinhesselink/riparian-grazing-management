@@ -5,8 +5,8 @@ account: beautiful
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2269291
-bundleId: 3797429
+bundleId: 3886766
 url: https://beautiful.shinyapps.io/Grazing-Windows/
-when: 1603989692.95275
+when: 1605915294.26989
 asMultiple: FALSE
 asStatic: FALSE

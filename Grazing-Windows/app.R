@@ -127,7 +127,7 @@ server <- function(input, output) {
                                DOY <= grazing_end, "Present", Cattle)) %>%
       ungroup() %>% 
       filter( DOY >= 121,  
-              DOY <= 273) # Only count days inside recreation water quality season
+              DOY <= 304) # Only count days inside recreation water quality season
   })
   
   yhat <- reactive({

@@ -69,8 +69,10 @@ threshholds <- data.frame(
 rec_windows <- 
   data.frame( year = c(2016, 2017, 2018)) %>%
   mutate( rec_start_doy = yday(ymd( paste(year, '05', '01', sep = '-') )), 
-          rec_end_doy = yday( ymd(paste( year, '09', '30', sep = '-' ))))
+          rec_end_doy = yday( ymd(paste( year, '10', '31', sep = '-' ))))
 
+gen_rec_start <- 121
+gen_rec_end <- 304
 
 xlab <- "Day of year"
 ylab <- expression( italic (E) *'.'~ italic( coli )~ '(M.P.N.)')
@@ -86,6 +88,7 @@ mycolors2 <- c('darkgray', mycolors[c(4,1)])
 Read in data from excel spreadsheet "ecoli_data.xlsx". 
 
 ```{r data input, include = F, message=F}
+
 stream_data <- 
   readxl::read_xlsx('data/ecoli_data.xlsx') %>% 
   mutate_at(.vars = c('sample_date', 
@@ -181,17 +184,17 @@ threshholds$Limit
 
 fig_ts <- 
   stream_data %>% 
-  ggplot( aes( x = DOY, y = ecoli_MPN , color = factor(year) )) + 
-  geom_vline(aes(xintercept = 121), color = c('darkgray'), linetype = c(1)) + 
-  geom_vline(aes(xintercept = 273), color = c('darkgray'), linetype = c(1)) + 
+  ggplot( aes( x = DOY, y = ecoli_MPN , color = factor(year), shape = Cattle )) + 
   geom_hline(data = threshholds, 
              aes( x = DOY, yintercept = Limit, linetype = E.coliMPN), show.legend = T) +  
   geom_point() + 
-  geom_line() + 
-  geom_text( aes( label = cattle_lab ), nudge_y = 0.1, show.legend = F) + 
+  geom_line(aes( group = factor(year))) + 
+  #geom_text( aes( label = cattle_lab ), nudge_y = 0.1, show.legend = F) + 
   scale_y_log10() + 
   scale_color_manual(values = mycolors2) + 
-  facet_wrap( Rotation ~ pasture_label + stream_label) 
+  scale_shape_manual(values = c(1, 17)) +
+  facet_wrap( Rotation ~ pasture_label + stream_label) + 
+  guides( shape = guide_legend(override.aes = list(linetype = 0)))
 
 # show figure 
 
@@ -358,8 +361,6 @@ fig2 <-
   stream_data %>% 
   distinct(Rotation, treatment, DOY, year, stream, pasture, ecoli_MPN ) %>% 
   ggplot( aes( y = ecoli_MPN, x = DOY, color = Rotation, fill = Rotation)) + 
-  geom_vline(aes(xintercept = 121), color = c('darkgray'), linetype = c(1)) + 
-  geom_vline(aes(xintercept = 273), color = c('darkgray'), linetype = c(1)) + 
   geom_hline(data = threshholds, 
              aes( yintercept = Limit, linetype = `E.coliMPN` )) +
   scale_color_manual(values = mycolors2, 
