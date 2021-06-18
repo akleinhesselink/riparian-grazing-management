@@ -1,8 +1,12 @@
 ---
-title: "Analyses of stream E. coli concentrations for: 'Mitigating ecosystem services tradeoffs in semi-arid rangelands by shortening grazing duration in riparian areas'"
+title: 'Analyses of stream E. coli concentrations for: ''Mitigating ecosystem service
+  tradeoffs in rangelands by using grazing duration and timing to manage water quality'''
 author: "Andrew Kleinhesselink"
-date: "10/28/2020"
-output: pdf_document
+date: "6/17/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -20,25 +24,18 @@ require(pbkrtest)
 require(stargazer)
 require(ggrepel)
 
-
 ```
 
 ## Set-up parameters and Labels
 
 Each stream was assigned to one of three treatments: 
 - short = "Time-Controlled Rotation" (aka Rapid Rotation)
-  - Definition: cattle are moved frequently 
 - medium = "Deferred-Rotation" (Four Pasture Rotation)
 - long = "Continuous-Turnout" (No rotation)
 
 E. coli thresholds are given by the Utah DWQ and the EPA. 
 
 ```{r parameters and labels, include = F}
-
-# Treatment Labels 
-# Low = Rapid Rotation/Short Duration/Time-Controlled Rotation
-# Medium = Four Pasture Rotation/Medium Duration/Deferred-Rotation
-# High = No Rotation/Long Duration/Continuous-Turnout
 
 rotation_labels <- factor( 
   c('Continuous-Turnout', 
@@ -111,12 +108,27 @@ stream_data <-
   mutate( cattle_lab = ifelse( Cattle == 'Present', '*', '' )) %>% 
   distinct() 
 
-cattle_windows <- 
-  stream_data %>% 
-  distinct(year, stream, pasture, treatment, Rotation, grazing_start, grazing_end, trailing_start, trailing_end ) %>% 
-  mutate( grazing_start = yday( grazing_start), grazing_end = yday( grazing_end), trailing_start = yday(trailing_start), trailing_end = yday(trailing_end)) %>% 
-  mutate( y_low = 0, y_hi = Inf) %>% 
-  mutate( DOY = 100, ecoli_MPN = 1 )
+cattle_windows <-
+  stream_data %>%
+  distinct(
+    year,
+    stream,
+    pasture,
+    treatment,
+    Rotation,
+    grazing_start,
+    grazing_end,
+    trailing_start,
+    trailing_end
+  ) %>%
+  mutate(
+    grazing_start = yday(grazing_start),
+    grazing_end = yday(grazing_end),
+    trailing_start = yday(trailing_start),
+    trailing_end = yday(trailing_end)
+  ) %>%
+  mutate(y_low = 0, y_hi = Inf) %>%
+  mutate(DOY = 100, ecoli_MPN = 1)
 
 ```
 
@@ -237,19 +249,50 @@ Grouping factors for error:
 - pasture
 
 ```{r gamm2}
-gam1 <- gamm4(data = stream_data , log_Y ~ treatment + Cattle + s(DOY, bs = 'cr', by = treatment), random = ~ (1|year:stream:pasture) + (1|stream))
+gam1 <-
+  gamm4(
+    data = stream_data ,
+    log_Y ~ treatment + Cattle + s(DOY, bs = 'cr', by = treatment),
+    random = ~ (1 | year:stream:pasture) + (1 | stream)
+  )
 
-gam2 <- gamm4(data = stream_data , log_Y ~ treatment + Cattle + s(DOY, bs = 'cr'), random = ~ (1|year:stream:pasture) + (1|stream))
+gam2 <-
+  gamm4(
+    data = stream_data ,
+    log_Y ~ treatment + Cattle + s(DOY, bs = 'cr'),
+    random = ~ (1 | year:stream:pasture) + (1 | stream)
+  )
 
-gam3 <- gamm4(data = stream_data , log_Y ~ treatment + s(DOY, bs = 'cr', by = treatment), random = ~ (1|year:stream:pasture) + (1|stream))
+gam3 <-
+  gamm4(
+    data = stream_data ,
+    log_Y ~ treatment + s(DOY, bs = 'cr', by = treatment),
+    random = ~ (1 | year:stream:pasture) + (1 | stream)
+  )
 
-gam4 <- gamm4(data = stream_data , log_Y ~ Cattle + s(DOY, bs = 'cr'), random = ~ (1|year:stream:pasture) + (1|stream))
+gam4 <-
+  gamm4(
+    data = stream_data ,
+    log_Y ~ Cattle + s(DOY, bs = 'cr'),
+    random = ~ (1 | year:stream:pasture) + (1 | stream)
+  )
 
-gam5 <- gamm4(data = stream_data , log_Y ~ treatment + s(DOY, bs = 'cr'), random = ~ (1|year:stream:pasture) + (1|stream))
+gam5 <-
+  gamm4(
+    data = stream_data ,
+    log_Y ~ treatment + s(DOY, bs = 'cr'),
+    random = ~ (1 | year:stream:pasture) + (1 | stream)
+  )
 
-gam_null <- gamm4( data = stream_data, log_Y ~ s(DOY, bs = 'cr'), random = ~( 1|year:stream:pasture) + (1|stream))
+gam_null <-
+  gamm4(
+    data = stream_data,
+    log_Y ~ s(DOY, bs = 'cr'),
+    random = ~ (1 | year:stream:pasture) + (1 | stream)
+  )
 
-# Model comparison: 
+# Model comparison:
+
 
 anova(gam1$mer, gam2$mer)
 
@@ -265,25 +308,26 @@ anova(gam1$mer, gam2$mer, gam3$mer, gam4$mer, gam5$mer, gam_null$mer)
 
 ```{r}
 
-mod_list <- list( gam_null, gam1, gam2, gam3, gam4, gam5)
+mod_list <- list(gam_null, gam1, gam2, gam3, gam4, gam5)
 
-my_forms <- as.character( lapply( mod_list, function(x) formula(  x$gam )  ) )
+my_forms <-
+  as.character(lapply(mod_list, function(x) formula(x$gam) ))
 
-mod_summary_table <- 
-  data.frame(  anova(gam1$mer, gam2$mer, gam3$mer, gam4$mer, gam5$mer, gam_null$mer) ) %>% 
-  mutate( Model = row.names(.) ) %>% 
-  arrange( Model) %>% 
-  mutate( `Fixed effects` = my_forms) %>%
-  rename( "DF" = Df) %>% 
-  dplyr::select( Model, `Fixed effects`, DF, logLik, AIC) %>% 
-  arrange( AIC ) %>% 
-  mutate( `Random effects` = "~(1|year:stream:pasture) + (1|stream)") %>% 
-  mutate( `Random effects` = ifelse( row_number() != 1, '""', `Random effects` ))  %>% 
-  mutate( `Fixed effects` = str_trim(str_remove_all(`Fixed effects`, '(log_Y )|(, bs = "cr")'))) %>% 
-  mutate( Model = str_remove_all(Model, '[(gam)(mer)_]|(\\$)' )) %>% 
-  mutate( logLik = round( logLik, 1), AIC = round(AIC, 1))
+mod_summary_table <-
+  data.frame(anova(gam1$mer, gam2$mer, gam3$mer, gam4$mer, gam5$mer, gam_null$mer)) %>%
+  mutate(Model = row.names(.)) %>%
+  arrange(Model) %>%
+  mutate(`Fixed effects` = my_forms) %>%
+  rename("DF" = Df) %>%
+  dplyr::select(Model, `Fixed effects`, DF, logLik, AIC) %>%
+  arrange(AIC) %>%
+  mutate(`Random effects` = "~(1|year:stream:pasture) + (1|stream)") %>%
+  mutate(`Random effects` = ifelse(row_number() != 1, '""', `Random effects`))  %>%
+  mutate(`Fixed effects` = str_trim(str_remove_all(`Fixed effects`, '(log_Y )|(, bs = "cr")'))) %>%
+  mutate(Model = str_remove_all(Model, '[(gam)(mer)_]|(\\$)')) %>%
+  mutate(logLik = round(logLik, 1), AIC = round(AIC, 1))
 
-
+# Save Table of Models 
 stargazer(mod_summary_table, 
           summary = F, 
           type = 'html', 
@@ -297,58 +341,93 @@ stargazer(mod_summary_table,
 Select model with lowest AIC and fewest parameters. 
 
 ```{r}
-top_gam <- gam2  ### best model based on combination of AIC and DF 
-summary( top_gam$mer)  
+top_gam <- gam2  ### best model based on combination of AIC and DF
+summary(top_gam$mer)
 
 anova(top_gam$gam, freq = F)
 
 test_cattle <- KRmodcomp(top_gam$mer, gam5$mer)
-test_treatment <- KRmodcomp( top_gam$mer, gam4$mer)
+test_treatment <- KRmodcomp(top_gam$mer, gam4$mer)
 
-print( 
-  summary(test_treatment), 
-  summary(test_cattle)
-)
+print(summary(test_treatment),
+      summary(test_cattle))
 
 ```
 
 ## GAMM predictions on "example" season
 
 ```{r}
-yhat <- predict(top_gam$gam, newdata = pred_grid, type = 'response', se.fit = T)
-pred_grid$yhat.top <- 10^( yhat$fit ) 
-pred_grid$lcl.top <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.top  <- 10^( yhat$fit + 2*yhat$se.fit)
+yhat <-
+  predict(top_gam$gam,
+          newdata = pred_grid,
+          type = 'response',
+          se.fit = T)
 
-yhat_pred <- predict(top_gam$gam, newdata = pred_grid, type = 'response', se.fit = T, interval = 'predict')
-pred_grid$y_predict.top <- 10^( yhat_pred$fit ) 
-pred_grid$lcl.top <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.top  <- 10^( yhat$fit + 2*yhat$se.fit)
+pred_grid$yhat.top <- 10 ^ (yhat$fit)
+pred_grid$lcl.top <- 10 ^ (yhat$fit - 2 * yhat$se.fit)
+pred_grid$ucl.top  <- 10 ^ (yhat$fit + 2 * yhat$se.fit)
 
-yhat <- predict(gam1$gam, newdata = pred_grid, type = 'response', se.fit = T)
-pred_grid$yhat.gam1 <- 10^( yhat$fit ) 
-pred_grid$lcl.gam1 <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.gam1  <- 10^( yhat$fit + 2*yhat$se.fit)
+yhat_pred <-
+  predict(
+    top_gam$gam,
+    newdata = pred_grid,
+    type = 'response',
+    se.fit = T,
+    interval = 'predict')
 
-yhat <- predict(gam3$gam, newdata = pred_grid, type = 'response', se.fit = T)
-pred_grid$yhat.gam3 <- 10^( yhat$fit ) 
-pred_grid$lcl.gam3 <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.gam3  <- 10^( yhat$fit + 2*yhat$se.fit)
+pred_grid$y_predict.top <- 10 ^ (yhat_pred$fit)
+pred_grid$lcl.top <- 10 ^ (yhat$fit - 2 * yhat$se.fit)
+pred_grid$ucl.top  <- 10 ^ (yhat$fit + 2 * yhat$se.fit)
 
-yhat <- predict(gam4$gam, newdata = pred_grid, type = 'response', se.fit = T)
-pred_grid$yhat.gam4 <- 10^( yhat$fit ) 
-pred_grid$lcl.gam4 <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.gam4 <- 10^( yhat$fit + 2*yhat$se.fit)
+yhat <-
+  predict(gam1$gam,
+          newdata = pred_grid,
+          type = 'response',
+          se.fit = T)
 
-yhat <- predict(gam5$gam, newdata = pred_grid, type = 'response', se.fit = T)
-pred_grid$yhat.gam5 <- 10^( yhat$fit ) 
-pred_grid$lcl.gam5 <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.gam5 <- 10^( yhat$fit + 2*yhat$se.fit)
+pred_grid$yhat.gam1 <- 10 ^ (yhat$fit)
+pred_grid$lcl.gam1 <- 10 ^ (yhat$fit - 2 * yhat$se.fit)
+pred_grid$ucl.gam1  <- 10 ^ (yhat$fit + 2 * yhat$se.fit)
 
-yhat <- predict(gam_null$gam, newdata = pred_grid, type = 'response', se.fit = T)
-pred_grid$yhat.gam.null <- 10^( yhat$fit ) 
-pred_grid$lcl.gam.null <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.gam.null <- 10^( yhat$fit + 2*yhat$se.fit)
+yhat <-
+  predict(gam3$gam,
+          newdata = pred_grid,
+          type = 'response',
+          se.fit = T)
+
+pred_grid$yhat.gam3 <- 10 ^ (yhat$fit)
+pred_grid$lcl.gam3 <- 10 ^ (yhat$fit - 2 * yhat$se.fit)
+pred_grid$ucl.gam3  <- 10 ^ (yhat$fit + 2 * yhat$se.fit)
+
+yhat <-
+  predict(gam4$gam,
+          newdata = pred_grid,
+          type = 'response',
+          se.fit = T)
+
+pred_grid$yhat.gam4 <- 10 ^ (yhat$fit)
+pred_grid$lcl.gam4 <- 10 ^ (yhat$fit - 2 * yhat$se.fit)
+pred_grid$ucl.gam4 <- 10 ^ (yhat$fit + 2 * yhat$se.fit)
+
+yhat <-
+  predict(gam5$gam,
+          newdata = pred_grid,
+          type = 'response',
+          se.fit = T)
+
+pred_grid$yhat.gam5 <- 10 ^ (yhat$fit)
+pred_grid$lcl.gam5 <- 10 ^ (yhat$fit - 2 * yhat$se.fit)
+pred_grid$ucl.gam5 <- 10 ^ (yhat$fit + 2 * yhat$se.fit)
+
+yhat <-
+  predict(gam_null$gam,
+          newdata = pred_grid,
+          type = 'response',
+          se.fit = T)
+
+pred_grid$yhat.gam.null <- 10 ^ (yhat$fit)
+pred_grid$lcl.gam.null <- 10 ^ (yhat$fit - 2 * yhat$se.fit)
+pred_grid$ucl.gam.null <- 10 ^ (yhat$fit + 2 * yhat$se.fit)
 
 ```
 
@@ -356,19 +435,23 @@ pred_grid$ucl.gam.null <- 10^( yhat$fit + 2*yhat$se.fit)
 
 Construct baseline figure and add data and prediction to it. 
 ```{r baseline figure}
-
-fig2 <- 
-  stream_data %>% 
-  distinct(Rotation, treatment, DOY, year, stream, pasture, ecoli_MPN ) %>% 
-  ggplot( aes( y = ecoli_MPN, x = DOY, color = Rotation, fill = Rotation)) + 
-  geom_hline(data = threshholds, 
-             aes( yintercept = Limit, linetype = `E.coliMPN` )) +
-  scale_color_manual(values = mycolors2, 
-                     guide = guide_legend( title.position = 'top', 
-                                           title.hjust = 0.5)) +
-  scale_linetype_manual( values = c(1:3)) + 
-  scale_y_log10() + 
-  theme_classic() + 
+fig2 <-
+  stream_data %>%
+  distinct(Rotation, treatment, DOY, year, stream, pasture, ecoli_MPN) %>%
+  ggplot(aes(
+    y = ecoli_MPN,
+    x = DOY,
+    color = Rotation,
+    fill = Rotation
+  )) +
+  geom_hline(data = threshholds,
+             aes(yintercept = Limit, linetype = `E.coliMPN`)) +
+  scale_color_manual(values = mycolors2,
+                     guide = guide_legend(title.position = 'top',
+                                          title.hjust = 0.5)) +
+  scale_linetype_manual(values = c(1:3)) +
+  scale_y_log10() +
+  theme_classic() +
   theme(legend.position = 'top')
 
 
@@ -377,71 +460,185 @@ fig2 <-
 
 ```{r }
 
-fig2gam.top <- 
-  fig2 + 
-  geom_point( color = NA) + 
-  geom_ribbon(data = pred_grid, aes( x = DOY,  y = yhat.top, ymin = lcl.top, ymax = ucl.top, fill = Rotation, color = NULL), alpha = 0.4 ) + 
-  geom_line( data = pred_grid, aes( x = DOY, y = yhat.top, color = Rotation), alpha = 1, size = 1.5) + 
-  geom_rect( data = pred_grid_windows, aes(xmin = DOY1, xmax = DOY2, ymin = 0, ymax = Inf), alpha = 0.2, color = NA, fill = 'gray') + 
-  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) + 
-  scale_linetype_manual( guide = "none" , values = c(1:3)) + 
-  facet_wrap( ~ Rotation , ncol = 1) + 
-  xlim( 100, 300 )
+fig2gam.top <-
+  fig2 +
+  geom_point(color = NA) +
+  geom_ribbon(
+    data = pred_grid,
+    aes(
+      x = DOY,
+      y = yhat.top,
+      ymin = lcl.top,
+      ymax = ucl.top,
+      fill = Rotation,
+      color = NULL
+    ),
+    alpha = 0.4
+  ) +
+  geom_line(
+    data = pred_grid,
+    aes(x = DOY, y = yhat.top, color = Rotation),
+    alpha = 1,
+    size = 1.5
+  ) +
+  geom_rect(
+    data = pred_grid_windows,
+    aes(
+      xmin = DOY1,
+      xmax = DOY2,
+      ymin = 0,
+      ymax = Inf
+    ),
+    alpha = 0.2,
+    color = NA,
+    fill = 'gray'
+  ) +
+  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) +
+  scale_linetype_manual(guide = "none" , values = c(1:3)) +
+  facet_wrap(~ Rotation , ncol = 1) +
+  xlim(100, 300)
 
-fig2gam1 <- 
-  fig2 + 
-  geom_point( color = NA) + 
-  geom_ribbon(data = pred_grid, aes( x = DOY,  y = yhat.gam1, ymin = lcl.gam1, ymax = ucl.gam1, fill = Rotation, color = NULL), alpha = 0.4 ) + 
-  geom_line( data = pred_grid, aes( x = DOY, y = yhat.gam1, color = Rotation), alpha = 1, size = 1.5) + 
-  geom_rect( data = pred_grid_windows, aes(xmin = DOY1, xmax = DOY2, ymin = 0, ymax = Inf), alpha = 0.2, color = NA, fill = 'gray') + 
-  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) + 
-  scale_linetype_manual( guide = "none" , values = c(1:3)) + 
-  theme(axis.title.y = element_blank()) + 
-  facet_wrap( ~ Rotation , ncol = 1) + 
-  xlim( 100, 300 )
+fig2gam1 <-
+  fig2 +
+  geom_point(color = NA) +
+  geom_ribbon(
+    data = pred_grid,
+    aes(
+      x = DOY,
+      y = yhat.gam1,
+      ymin = lcl.gam1,
+      ymax = ucl.gam1,
+      fill = Rotation,
+      color = NULL
+    ),
+    alpha = 0.4
+  ) +
+  geom_line(
+    data = pred_grid,
+    aes(x = DOY, y = yhat.gam1, color = Rotation),
+    alpha = 1,
+    size = 1.5
+  ) +
+  geom_rect(
+    data = pred_grid_windows,
+    aes(
+      xmin = DOY1,
+      xmax = DOY2,
+      ymin = 0,
+      ymax = Inf
+    ),
+    alpha = 0.2,
+    color = NA,
+    fill = 'gray'
+  ) +
+  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) +
+  scale_linetype_manual(guide = "none" , values = c(1:3)) +
+  theme(axis.title.y = element_blank()) +
+  facet_wrap(~ Rotation , ncol = 1) +
+  xlim(100, 300)
 
-fig2gam3 <- 
-  fig2 + 
-  geom_point( color = NA) + 
-  geom_ribbon(data = pred_grid, aes( x = DOY,  y = yhat.gam3, ymin = lcl.gam3, ymax = ucl.gam3, fill = Rotation, color = NULL), alpha = 0.4 ) + 
-  geom_line( data = pred_grid, aes( x = DOY, y = yhat.gam3, color = Rotation), alpha = 1, size = 1.5) + 
-  geom_rect( data = pred_grid_windows, aes(xmin = DOY1, xmax = DOY2, ymin = 0, ymax = Inf), alpha = 0.2, color = NA, fill = 'gray') + 
-  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) + 
-  scale_linetype_manual( guide = "none" , values = c(1:3)) + 
-  theme(axis.title.y = element_blank()) + 
-  facet_wrap( ~ Rotation , ncol = 1) + 
-  xlim( 100, 300 )
+fig2gam3 <-
+  fig2 +
+  geom_point(color = NA) +
+  geom_ribbon(
+    data = pred_grid,
+    aes(
+      x = DOY,
+      y = yhat.gam3,
+      ymin = lcl.gam3,
+      ymax = ucl.gam3,
+      fill = Rotation,
+      color = NULL
+    ),
+    alpha = 0.4
+  ) +
+  geom_line(
+    data = pred_grid,
+    aes(x = DOY, y = yhat.gam3, color = Rotation),
+    alpha = 1,
+    size = 1.5
+  ) +
+  geom_rect(
+    data = pred_grid_windows,
+    aes(
+      xmin = DOY1,
+      xmax = DOY2,
+      ymin = 0,
+      ymax = Inf
+    ),
+    alpha = 0.2,
+    color = NA,
+    fill = 'gray'
+  ) +
+  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) +
+  scale_linetype_manual(guide = "none" , values = c(1:3)) +
+  theme(axis.title.y = element_blank()) +
+  facet_wrap(~ Rotation , ncol = 1) +
+  xlim(100, 300)
 
-fig2gam4 <- 
-  fig2 + 
-  geom_point( color = NA) + 
-  geom_ribbon(data = pred_grid, aes( x = DOY,  y = yhat.gam4, ymin = lcl.gam4, ymax = ucl.gam4, fill = Rotation, color = NULL), alpha = 0.4 ) + 
-  geom_line( data = pred_grid, aes( x = DOY, y = yhat.gam4, color = Rotation), alpha = 1, size = 1.5) + 
-  geom_rect( data = pred_grid_windows, aes(xmin = DOY1, xmax = DOY2, ymin = 0, ymax = Inf), alpha = 0.2, color = NA, fill = 'gray') + 
-  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) + 
-  scale_linetype_manual( guide = "none" , values = c(1:3)) + 
-  theme(axis.title.y = element_blank()) + 
-  facet_wrap( ~ Rotation , ncol = 1) + 
-  xlim( 100, 300 )
+fig2gam4 <-
+  fig2 +
+  geom_point(color = NA) +
+  geom_ribbon(
+    data = pred_grid,
+    aes(
+      x = DOY,
+      y = yhat.gam4,
+      ymin = lcl.gam4,
+      ymax = ucl.gam4,
+      fill = Rotation,
+      color = NULL
+    ),
+    alpha = 0.4
+  ) +
+  geom_line(
+    data = pred_grid,
+    aes(x = DOY, y = yhat.gam4, color = Rotation),
+    alpha = 1,
+    size = 1.5
+  ) +
+  geom_rect(
+    data = pred_grid_windows,
+    aes(
+      xmin = DOY1,
+      xmax = DOY2,
+      ymin = 0,
+      ymax = Inf
+    ),
+    alpha = 0.2,
+    color = NA,
+    fill = 'gray'
+  ) +
+  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) +
+  scale_linetype_manual(guide = "none" , values = c(1:3)) +
+  theme(axis.title.y = element_blank()) +
+  facet_wrap(~ Rotation , ncol = 1) +
+  xlim(100, 300)
 
-plot_grid(fig2gam.top + ggtitle('top gam'),  
-          fig2gam1 + ggtitle('gam1'), 
-          fig2gam4 + ggtitle('gam4'),  
-          fig2gam3 + ggtitle('gam3'), nrow = 1)
+plot_grid(
+  fig2gam.top + ggtitle('top gam'),
+  fig2gam1 + ggtitle('gam1'),
+  fig2gam4 + ggtitle('gam4'),
+  fig2gam3 + ggtitle('gam3'),
+  nrow = 1
+)
 
-fig2gam.top + ylab(ylab) + xlab( xlab)
+fig2gam.top + ylab(ylab) + xlab(xlab)
 
 ```
 
 ## Save plot of top model 
 
-```{r}
-
-ggsave( fig2gam.top + 
-          ylab(ylab) + 
-          xlab( xlab), 
-        filename = 'figure_2_representative_grazing_season.png', 
-        width = 6, height = 6, units = 'in')
+```{r Save Figure 2}
+ggsave(
+  fig2gam.top +
+    ylab(ylab) +
+    xlab(xlab),
+  filename = 'figure_2_representative_grazing_season.png',
+  width = 6,
+  height = 6,
+  units = 'in', 
+  dpi = 600)
 
 ```
 
@@ -480,39 +677,45 @@ summary(top_gam$mer)
 Find the number of daily **E. coli** measures above regulatory thresholds for each stream in each treatment level.  For example season, use average **E. coli** concentrations predicted by the model.  Only count days within the recreational water quality window. 
 
 ```{r calculate days exceeding thresholds}
-
-days_exceeding <- 
-  pred_grid %>% 
-  filter( DOY >= rec_windows$rec_start_doy[ rec_windows$year == 2017], 
-          DOY <= rec_windows$rec_end_doy[ rec_windows$year == 2017]) %>%
-  distinct( treatment, DOY, yhat.top) %>% 
-  group_by( treatment) %>% 
-  summarise( `320` = sum(yhat.top > 320), 
-             `410` = sum(yhat.top > 410), 
-             `668`= sum(yhat.top > 668)) %>% 
-  left_join(stream_data %>% 
-              ungroup() %>% 
-              distinct(treatment, Rotation )) %>% 
-  select( Rotation, `320`:`668`) %>%  
-  gather( Limit, ndays, `320`:`668`) %>% 
-  spread( Rotation, ndays) %>% 
-  mutate( Limit = as.numeric(Limit)) %>% 
+days_exceeding <-
+  pred_grid %>%
+  filter(DOY >= rec_windows$rec_start_doy[rec_windows$year == 2017],
+         DOY <= rec_windows$rec_end_doy[rec_windows$year == 2017]) %>%
+  distinct(treatment, DOY, yhat.top) %>%
+  group_by(treatment) %>%
+  summarise(
+    `320` = sum(yhat.top > 320),
+    `410` = sum(yhat.top > 410),
+    `668` = sum(yhat.top > 668)
+  ) %>%
+  left_join(stream_data %>%
+              ungroup() %>%
+              distinct(treatment, Rotation)) %>%
+  select(Rotation, `320`:`668`) %>%
+  gather(Limit, ndays, `320`:`668`) %>%
+  spread(Rotation, ndays) %>%
+  mutate(Limit = as.numeric(Limit)) %>%
   left_join(threshholds)
 
-stargazer(days_exceeding %>% 
-            select(Threshold, Limit,
-                   `Time-Controlled Rotation`:`Continuous-Turnout`),
-          summary = F, 
-          type = 'html', 
-          out = 'table_2_predicted_days_exceeding.html', 
-          digits = 1, rownames = F)
+stargazer(
+  days_exceeding %>%
+    select(
+      Threshold,
+      Limit,
+      `Time-Controlled Rotation`:`Continuous-Turnout`
+    ),
+  summary = F,
+  type = 'html',
+  out = 'table_2_predicted_days_exceeding.html',
+  digits = 1,
+  rownames = F)
 
-stream_data %>% 
-  group_by( Rotation ) %>% 
-  summarise( `ndays above 320 MPN` = sum(ecoli_MPN > 320)/n(), 
-             `ndays above 410 MPN` = sum(ecoli_MPN > 410)/n(), 
-             `ndays above 668 MPN`= sum(ecoli_MPN > 668)/n())
-
+stream_data %>%
+  group_by(Rotation) %>%
+  summarise(
+    `ndays above 320 MPN` = sum(ecoli_MPN > 320) / n(),
+    `ndays above 410 MPN` = sum(ecoli_MPN > 410) / n(),
+    `ndays above 668 MPN` = sum(ecoli_MPN > 668) / n())
 
 ```
 
@@ -521,83 +724,83 @@ stream_data %>%
 Calculate the number of days per recreation season that **E. coli** concentrations are predicted to be above Utah DWQ thresholds or EPA 75th and 95th percentiles.  Calculate median and 95% Credible Intervals by re-sampling from 10000 daily predictions from posterior predictive distribution. 
 
 ```{r } 
-set.seed(1) # for Monte Carlo reproduciblility
+set.seed(1) # for reproducibility
 
-pred_ndays_above <- function(gam_mod, new_data, threshholds){ 
+pred_ndays_above <- function(gam_mod, new_data, threshholds) {
   # based on advice from Simon Wood https://stat.ethz.ch/pipermail/r-help/2011-April/275632.html
   beta <- coef(gam_mod$gam)
   Vb <- vcov(gam_mod$gam)
-
+  
   ## Simulate replicate beta vectors from posterior...
   Cv <- chol(Vb)
-  n.rep=10000
+  n.rep = 10000
   nb <- length(beta)
-  br <- t(Cv) %*% matrix(rnorm(n.rep*nb),nb,n.rep) + beta
-
+  br <- t(Cv) %*% matrix(rnorm(n.rep * nb), nb, n.rep) + beta
+  
   ## Generate replicate linear predictors...
-  Xp <- predict(gam_mod$gam, newdata = new_data, type="lpmatrix")
-  lp <- Xp%*%br
-
-  gam_summary <- ( summary( gam_mod$gam ) )
-  est_scale <- sqrt( gam_summary$scale)
-
+  Xp <- predict(gam_mod$gam, newdata = new_data, type = "lpmatrix")
+  lp <- Xp %*% br
+  
+  gam_summary <- (summary(gam_mod$gam))
+  est_scale <- sqrt(gam_summary$scale)
+  
   ## simulate from normal deviates with mean and scale
-  yr <- matrix(
-    rnorm(length(lp),lp,sd = est_scale),
-    nrow(lp),
-    ncol(lp)
-    )
-
+  yr <- matrix(rnorm(length(lp), lp, sd = est_scale),
+               nrow(lp),
+               ncol(lp))
+  
   ## compute 95% prediction interval...
-  PI <- apply(yr,1,quantile,prob=c(.025,0.975))
-
-  new_data$lpi <- 10^PI['2.5%', ]
-  new_data$upi <- 10^PI['97.5%', ]
-
-  pred_split <- new_data %>% 
-    select( treatment, DOY, Rotation, Cattle) %>% 
-    bind_cols(sim = yr) %>% 
-    split( f = .$treatment ) 
-
-  days_above_table <- 
-    expand.grid( 
-      treatment = c('long', 'medium', 'short'), 
-      Limit = threshholds$Limit, 
-      min = NA, 
-      q2.5 = NA, 
-      q50 = NA, 
-      q97.5 = NA, 
-      max = NA, 
-      n = NA)
-
-  for( i in 1:nrow(days_above_table)){ 
-    
-    temp_sims <- 
+  PI <- apply(yr, 1, quantile, prob = c(.025, 0.975))
+  
+  new_data$lpi <- 10 ^ PI['2.5%',]
+  new_data$upi <- 10 ^ PI['97.5%',]
+  
+  pred_split <- new_data %>%
+    select(treatment, DOY, Rotation, Cattle) %>%
+    bind_cols(sim = yr) %>%
+    split(f = .$treatment)
+  
+  days_above_table <-
+    expand.grid(
+      treatment = c('long', 'medium', 'short'),
+      Limit = threshholds$Limit,
+      min = NA,
+      q2.5 = NA,
+      q50 = NA,
+      q97.5 = NA,
+      max = NA,
+      n = NA
+    )
+  
+  for (i in 1:nrow(days_above_table)) {
+    temp_sims <-
       pred_split[[days_above_table$treatment[i]]]$sim
     
-    days_above_table[i, c('min', 'q2.5', 'q50', 'q97.5', 'max')] <- 
-      quantile( colSums( (10^temp_sims)  > days_above_table$Limit[i] ), 
-                c( 0, 0.025, 0.5, 0.975, 1)) %>% round()
+    days_above_table[i, c('min', 'q2.5', 'q50', 'q97.5', 'max')] <-
+      quantile(colSums((10 ^ temp_sims)  > days_above_table$Limit[i]),
+               c(0, 0.025, 0.5, 0.975, 1)) %>% round()
     
-    days_above_table[i, 'n' ] <- 
+    days_above_table[i, 'n'] <-
       nrow(temp_sims)
-      
+    
   }
   
   return(days_above_table)
 }
 
-days_above_pred <- 
-  pred_ndays_above(top_gam, 
-                   stream_data %>% 
-                     left_join(rec_windows) %>%
-                     filter( DOY >= rec_start_doy, 
-                             DOY <= rec_end_doy), 
-                   threshholds) %>% 
-  gather( stat, val, min:max) %>%
-  rename( 'days_above' = val) %>% 
-  mutate( pdays_above = days_above/n) %>% 
-  mutate( type = 'predicted')
+days_above_pred <-
+  pred_ndays_above(
+    top_gam,
+    stream_data %>%
+      left_join(rec_windows) %>%
+      filter(DOY >= rec_start_doy,
+             DOY <= rec_end_doy),
+    threshholds
+  ) %>%
+  gather(stat, val, min:max) %>%
+  rename('days_above' = val) %>%
+  mutate(pdays_above = days_above / n) %>%
+  mutate(type = 'predicted')
 
 ```
 
@@ -636,223 +839,175 @@ days_above_comparison <-
 
   
 ```{r }
-cred_intervals <- 
-  days_above_comparison %>% 
-  filter( type == 'predicted', Limit == '668' ) %>% 
-  filter( stat %in% c('q2.5', 'q97.5')) %>% 
-  select( Rotation, stat, pdays_above, type ) %>% 
-  spread( stat, pdays_above)
-
-days_exceeding_plot <- 
+cred_intervals <-
   days_above_comparison %>%
-  filter( Limit == 668, stat == 'q50') %>%
-  select( -treatment) %>% 
+  filter(type == 'predicted', Limit == '668') %>%
+  filter(stat %in% c('q2.5', 'q97.5')) %>%
+  select(Rotation, stat, pdays_above, type) %>%
+  spread(stat, pdays_above)
+
+days_exceeding_plot <-
+  days_above_comparison %>%
+  filter(Limit == 668, stat == 'q50') %>%
+  select(-treatment) %>%
   left_join(cred_intervals) %>%
-  ggplot( aes( x = Rotation, 
-               y = pdays_above, 
-               color = type, 
-               shape = type )) + 
-  geom_point(position = position_dodge( width = 0.5 ), size = 2) + 
-  geom_errorbar(aes( x = Rotation,
-                     ymin = q2.5, ymax = q97.5, color = type, shape = type), 
-                position = position_dodge(width = 0.5), size = 0.5, width = 0.5) +
+  ggplot(aes(
+    x = Rotation,
+    y = pdays_above,
+    color = type,
+    shape = type
+  )) +
+  geom_point(position = position_dodge(width = 0.5), size = 2) +
+  geom_errorbar(
+    aes(
+      x = Rotation,
+      ymin = q2.5,
+      ymax = q97.5,
+      color = type,
+      shape = type
+    ),
+    position = position_dodge(width = 0.5),
+    size = 0.5,
+    width = 0.5
+  ) +
   geom_text_repel(
     aes(label = days_above_label),
     hjust = 0,
-    position = position_dodge(width = 0.5), 
-    show.legend = F) +
-  scale_shape_manual(values = c(2,1)) + 
-  theme_bw() + 
-  theme(legend.title = element_blank(), 
-        axis.title.x = element_blank(), 
-        panel.grid = element_blank()) + 
-  ylab( 'Proportion of Days Above\nUtah DWQ Limit' ) 
-  
+    position = position_dodge(width = 0.5),
+    show.legend = F
+  ) +
+  scale_shape_manual(values = c(2, 1)) +
+  theme_bw() +
+  theme(
+    legend.title = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid = element_blank()
+  ) +
+  ylab('Proportion of Days Above\nUtah DWQ Limit')
 
-ggsave(days_exceeding_plot, 
-       filename = 'figure_4_days_above_DWQ.png', 
-       height = 5, 
-       width = 6, 
-       units = 'in')
+days_exceeding_plot
+```
 
+
+```{r Save Figure 4}
+ggsave(
+  days_exceeding_plot,
+  filename = 'figure_4_days_above_DWQ.png',
+  height = 5,
+  width = 6,
+  units = 'in', 
+  dpi = 600
+)
 ```
 
 ### Make a table comparing days above thresholds 
 
-```{r }
-days_above_comparison %>% 
-  filter( type == 'predicted') %>% 
-  select( Limit:Rotation, -n, -days_above, -type) %>% 
-  spread( stat, pdays_above)  %>% 
+```{r Save threshold analysis Table}
+days_above_comparison %>%
+  filter(type == 'predicted') %>%
+  select(Limit:Rotation,-n,-days_above,-type) %>%
+  spread(stat, pdays_above)  %>%
   left_join(
-    days_above_comparison %>% 
-      filter( type == 'observed') %>% 
-      select( Limit:Rotation, -n, -days_above, -type) %>% 
-      spread( stat, pdays_above) %>% 
-      rename( 'observed' = q50)
-  ) %>% 
-  write_csv(path = 'prop_days_above_comparison.csv')
+    days_above_comparison %>%
+      filter(type == 'observed') %>%
+      select(Limit:Rotation,-n,-days_above,-type) %>%
+      spread(stat, pdays_above) %>%
+      rename('observed' = q50)
+  ) %>%
+  write_csv(file = 'prop_days_above_comparison.csv')
 
 ```
 
-## Plot top model 
+## Save output for Shiny App in separate directory 
 ```{r}
-saveRDS( top_gam, file = 'Grazing-Windows/top_gam.rds')
+saveRDS(top_gam, file = 'Grazing-Windows/top_gam.rds')
 
-save(fig2, pred_grid, mycolors2, ylab, xlab, pred_ndays_above, threshholds, rec_windows, file = 'Grazing-Windows/model_data.rda') # save model for shiny App  
+save(
+  fig2,
+  pred_grid,
+  mycolors2,
+  ylab,
+  xlab,
+  pred_ndays_above,
+  threshholds,
+  rec_windows,
+  file = 'Grazing-Windows/model_data.rda'
+) # save model for shiny App  
 
 ```
-
 
 ## Marginal effect of cattle and treatment on E. coli, removing DOY effect
 
-```{r fig1, echo=FALSE}
+```{r Figure 3, echo=FALSE}
+pred_grid_cattle_present <-
+  pred_grid %>%
+  filter(DOY == 211) %>%
+  mutate(Cattle = 'Present') %>%
+  select(treatment, DOY, Rotation, Cattle)
 
-pred_grid_cattle_present <- 
-  pred_grid %>% 
-  filter( DOY == 211 ) %>% 
-  mutate( Cattle = 'Present') %>%
-  select( treatment, DOY, Rotation, Cattle)  
+pred_grid_cattle_absent <-
+  pred_grid %>%
+  filter(DOY == 211) %>%
+  mutate(Cattle = 'Absent') %>%
+  select(treatment, DOY, Rotation, Cattle)
 
-pred_grid_cattle_absent <- 
-  pred_grid %>% 
-  filter( DOY == 211 ) %>%
-  mutate( Cattle = 'Absent') %>% 
-  select( treatment, DOY, Rotation, Cattle )
+pred_grid_CATTLE <-
+  bind_rows(pred_grid_cattle_present, pred_grid_cattle_absent)
 
-pred_grid_CATTLE <- bind_rows(pred_grid_cattle_present, pred_grid_cattle_absent)
-Xp <- predict( top_gam$gam, newdata = pred_grid_CATTLE, type = "lpmatrix" )[, 1:4] # remove smoothing terms 
+Xp <-
+  predict(top_gam$gam, newdata = pred_grid_CATTLE, type = "lpmatrix")[, 1:4] # remove smoothing terms
 
 a  <- rep(1, 6)
-Xs <- t(a) %*% Xp 
-Vb <- as.matrix( vcov(top_gam$gam)[1:4, 1:4])
+Xs <- t(a) %*% Xp
+Vb <- as.matrix(vcov(top_gam$gam)[1:4, 1:4])
 v <- NA
-for( i in 1:nrow( Xp)){ 
-  v[i] <- Xp[i,] %*% Vb %*% Xp[i,]
+for (i in 1:nrow(Xp)) {
+  v[i] <- Xp[i, ] %*% Vb %*% Xp[i, ]
 }
 se <- sqrt(v)
 my_coefs <- coef(top_gam$gam)
 
-mean_cattle_absent <- mean( log10( stream_data$ecoli_MPN[ stream_data$Cattle == 'Absent' ]  ) )
+mean_cattle_absent <-
+  mean(log10(stream_data$ecoli_MPN[stream_data$Cattle == 'Absent']))
 
-my_coefs[1] <- - my_coefs[3] # Reset intercept so short treatment is reference level   
+my_coefs[1] <-
+  -my_coefs[3] # Reset intercept so short treatment is reference level
 
-mu <- Xp %*% my_coefs[1:4] # exclude smoothing terms 
+mu <- Xp %*% my_coefs[1:4] # exclude smoothing terms
 
-pred_grid_CATTLE$yhat <- mu[,1]
-pred_grid_CATTLE$ul <- mu[,1] + sqrt( se )
-pred_grid_CATTLE$ll <- mu[,1] - sqrt( se )
+pred_grid_CATTLE$yhat <- mu[, 1]
+pred_grid_CATTLE$ul <- mu[, 1] + sqrt(se)
+pred_grid_CATTLE$ll <- mu[, 1] - sqrt(se)
 
-# Plot marginal effects of treatment and Cattle 
+# Plot marginal effects of treatment and Cattle
 
-ylab_marginal <- expression( Marginal~effect~'('*Log[10]~italic(E)*'.'~italic(coli)*' '%+-%'S.E.'*')')
+ylab_marginal <-
+  expression(Marginal ~ effect ~ '(' * Log[10] ~ italic(E) * '.' ~ italic(coli) *
+               ' ' %+-% 'S.E.' * ')')
 
-treatment_effects <- 
-  pred_grid_CATTLE %>% 
-  ggplot( aes( x = Rotation, y = yhat, color = Cattle) ) + 
-  geom_point(position = position_dodge(width = 1)) + 
-  geom_errorbar(aes( ymin = ll, ymax = ul), position = position_dodge(width = 1)) + 
-  ylab(ylab_marginal) + 
-  scale_color_manual(values = c('#00BFC4', '#F8766D') ) + 
+treatment_effects <-
+  pred_grid_CATTLE %>%
+  ggplot(aes(x = Rotation, y = yhat, color = Cattle)) +
+  geom_point(position = position_dodge(width = 1)) +
+  geom_errorbar(aes(ymin = ll, ymax = ul), position = position_dodge(width = 1)) +
+  ylab(ylab_marginal) +
+  scale_color_manual(values = c('#00BFC4', '#F8766D')) +
   theme_classic() +
-  theme(axis.title.x = element_blank() ) + 
-  geom_hline( aes( yintercept = 0 ), linetype = 2, color = "gray") 
+  theme(axis.title.x = element_blank()) +
+  geom_hline(aes(yintercept = 0), linetype = 2, color = "gray")
 
-
-ggsave(treatment_effects, 
-       filename = 'figure_3_treatment_effects.png', 
-       width = 6, 
-       height = 3, 
-       units = 'in')
-
+treatment_effects
 ```
 
-## Original GAMM 
 
-For reference, we recreate the original GAMM analysis conducted by Jereme Gaeta for Kris Hulvey.  This is being replaced by the new analysis and figures above. 
-
-```{r gamm }
-
-gam_original <- 
-  gamm4(data = stream_data , 
-        log_Y ~ treatment + s(DOY, bs = 'cr', by = treatment), 
-        random = ~ (1|stream:pasture))
-
-yhat <- 
-  predict(gam_original$gam, 
-          newdata = pred_grid, 
-          type = 'response', 
-          se.fit = T)
-
-pred_grid$yhat.gam_original <- 10^( yhat$fit ) 
-pred_grid$lcl.gam_original <- 10^( yhat$fit - 2*yhat$se.fit) 
-pred_grid$ucl.gam_original <- 10^( yhat$fit + 2*yhat$se.fit)
-
-
-```
-
-## Original Figure 2(a)
-```{r fig2a}
-
-fig2a <- 
-  fig2 + 
-  geom_point(alpha = 0.7, size = 4) + 
-  geom_point(alpha = 1, size = 4, shape = 1)
-
-
-
-```
-
-## Original Figure 2(b)
-
-```{r}
-
-fig2b <-
-  fig2 +
-  geom_point(color = NA) +
-  geom_ribbon(
-  data = pred_grid,
-  aes(
-  x = DOY,
-  y = yhat.gam_original,
-  ymin = lcl.gam_original,
-  ymax = ucl.gam_original,
-  fill = Rotation,
-  color = NULL
-  ),
-  alpha = 0.4
-  ) +
-  geom_line(
-  data = pred_grid,
-  aes(x = DOY, y = yhat.gam_original, color = Rotation),
-  alpha = 1,
-  size = 1.5
-  ) +
-  scale_fill_manual(values = mycolors2, guide = guide_legend(title.position = 'top')) +
-  scale_linetype_manual(guide = "none" , values = c(1:3)) +
-  theme(axis.title.y = element_blank())
-
-```
-
-## Original Figure 2 combined 
-```{r}
-
-prow <- plot_grid(
-  fig2a + theme(legend.position="none"),
-  fig2b + theme(legend.position="none"),
-  align = 'vh',
-  labels = c("A", "B"),
-  hjust = -1,
-  nrow = 1
+```{r Save Figure 3}
+# Save Figure 3
+ggsave(
+  treatment_effects,
+  filename = 'figure_3_treatment_effects.png',
+  width = 6,
+  height = 3,
+  units = 'in', 
+  dpi = 600 
 )
-
-legend <- get_legend(
-  # create some space to the left of the legend
-  fig2b + theme(legend.box.margin = margin(0, 0, 0, 12))
-)
-
-
-plot_grid(legend, prow,  ncol = 1, rel_heights = c(0.1, 1))
-
 ```
-
