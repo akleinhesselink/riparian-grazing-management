@@ -85,7 +85,6 @@ mycolors2 <- c('darkgray', mycolors[c(4,1)])
 Read in data from excel spreadsheet "ecoli_data.xlsx". 
 
 ```{r data input, include = F, message=F}
-
 stream_data <- 
   readxl::read_xlsx('data/ecoli_data.xlsx') %>% 
   mutate_at(.vars = c('sample_date', 
